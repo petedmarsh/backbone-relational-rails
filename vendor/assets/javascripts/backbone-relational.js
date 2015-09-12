@@ -1,6 +1,6 @@
 /* vim: set tabstop=4 softtabstop=4 shiftwidth=4 noexpandtab: */
 /**
- * Backbone-relational.js 0.9.0
+ * Backbone-relational.js 0.10.0
  * (c) 2011-2014 Paul Uithol and contributors (https://github.com/PaulUithol/Backbone-relational/graphs/contributors)
  *
  * Backbone-relational may be freely distributed under the MIT license; see the accompanying LICENSE.txt.
@@ -1022,9 +1022,8 @@
 					}
 					else {
 						// If `merge` is true, update models here, instead of during update.
-						model = this.relatedModel.findOrCreate( attributes,
-							_.extend( { merge: true }, options, { create: this.options.createModels } )
-						);
+						model = ( _.isObject( attributes ) && options.parse && this.relatedModel.prototype.parse ) ?
+							this.relatedModel.prototype.parse( _.clone( attributes ), options ) : attributes;
 					}
 
 					model && toAdd.push( model );
@@ -1037,9 +1036,9 @@
 					related = this._prepareCollection();
 				}
 
-				// By now, both `merge` and `parse` will already have been executed for models if they were specified.
-				// Disable them to prevent additional calls.
-				related.set( toAdd, _.defaults( { merge: false, parse: false }, options ) );
+				// By now, `parse` will already have been executed just above for models if specified.
+				// Disable to prevent additional calls.
+				related.set( toAdd, _.defaults( { parse: false }, options ) );
 			}
 
 			// Remove entries from `keyIds` that were already part of the relation (and are thus 'unchanged')
@@ -1238,7 +1237,7 @@
 				var dit = this,
 					args = arguments;
 
-				if ( !Backbone.Relational.eventQueue.isLocked() ) {
+				if ( !Backbone.Relational.eventQueue.isBlocked() ) {
 					// If we're not in a more complicated nested scenario, fire the change event right away
 					Backbone.Model.prototype.trigger.apply( dit, args );
 				}
@@ -1494,11 +1493,15 @@
 				}
 			}
 
-			return $.when.apply( null, requests ).then(
+			return this.deferArray(requests).then(
 				function() {
 					return Backbone.Model.prototype.get.call( dit, attr );
 				}
 			);
+		},
+		
+		deferArray: function(deferArray) {
+			return Backbone.$.when.apply(null, deferArray);
 		},
 
 		set: function( key, value, options ) {
@@ -1827,7 +1830,7 @@
 		findOrCreate: function( attributes, options ) {
 			options || ( options = {} );
 			var parsedAttributes = ( _.isObject( attributes ) && options.parse && this.prototype.parse ) ?
-				this.prototype.parse( _.clone( attributes ) ) : attributes;
+				this.prototype.parse( _.clone( attributes ), options ) : attributes;
 
 			// If specified, use a custom `find` function to match up existing models to the given attributes.
 			// Otherwise, try to find an instance of 'this' model type in the store
@@ -1974,20 +1977,16 @@
 	};
 
 	/**
-	 * Override 'Backbone.Collection.remove' to trigger 'relational:remove'.
+	 * Override 'Backbone.Collection._removeModels' to trigger 'relational:remove'.
 	 */
-	var remove = Backbone.Collection.prototype.__remove = Backbone.Collection.prototype.remove;
-	Backbone.Collection.prototype.remove = function( models, options ) {
+	var _removeModels = Backbone.Collection.prototype.___removeModels = Backbone.Collection.prototype._removeModels;
+	Backbone.Collection.prototype._removeModels = function( models, options ) {
 		// Short-circuit if this Collection doesn't hold RelationalModels
 		if ( !( this.model.prototype instanceof Backbone.RelationalModel ) ) {
-			return remove.call( this, models, options );
+			return _removeModels.call( this, models, options );
 		}
 
-		var singular = !_.isArray( models ),
-			toRemove = [];
-
-		models = singular ? ( models ? [ models ] : [] ) : _.clone( models );
-		options || ( options = {} );
+		var toRemove = [];
 
 		//console.debug('calling remove on coll=%o; models=%o, options=%o', this, models, options );
 		_.each( models, function( model ) {
@@ -1995,7 +1994,7 @@
 			model && toRemove.push( model );
 		}, this );
 
-		var result = remove.call( this, singular ? ( toRemove.length ? toRemove[ 0 ] : null ) : toRemove, options );
+		var result = _removeModels.call( this, toRemove, options );
 
 		_.each( toRemove, function( model ) {
 			this.trigger( 'relational:remove', model, this, options );

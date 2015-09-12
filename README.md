@@ -18,7 +18,7 @@ Add the following directive to your Javascript manifest file (application.js):
 
 ## Versioning
 
-backbone-relational-rails 0.9.0 == Backbone-relational 0.9.0
+backbone-relational-rails 0.10.0 == Backbone-relational 0.10.0
 
 Every attempt is made to mirror the currently shipping Backbone-relational version number wherever possible.
 The major, minor, and patch version numbers will always represent the Backbone-relational version. Should a gem
@@ -26,7 +26,7 @@ bug be discovered, a 4th version identifier will be added and incremented.
 
 ## Backbone Version
 
-This release of Backbone-relational is only compatible with Backbone >= 1.1.2.
+This release of Backbone-relational is only compatible with Backbone >= 1.2.1.
 
 ## Acknowledgements
 
